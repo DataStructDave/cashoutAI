@@ -20,6 +20,7 @@ if (!process.env.OPENAI_API_KEY) console.warn("⚠️ OPENAI_API_KEY not set");
 const client = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 
 const app = express();
+app.set("trust proxy", 1);
 const upload = multer({ limits: { fileSize: 20 * 1024 * 1024 } });
 
 // CORS: restrict origins in production when CORS_ORIGIN is set
