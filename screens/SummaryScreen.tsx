@@ -8,6 +8,7 @@ import Header, { HEADER_HEIGHT } from "../components/Header";
 import { colors, fontSizes, radii, spacing } from "../theme";
 import { useEntryStore } from "../store/EntryStore";
 import { appendSlipsForDate, replaceSlipsForDate } from "../store/slipsStorage";
+import { trackEvent } from "../utils/analytics";
 
 type Props = NativeStackScreenProps<RootStackParamList, "Summary">;
 
@@ -134,6 +135,10 @@ export default function SummaryScreen({ navigation, route }: Props) {
         style={[styles.homeButton, { bottom: insets.bottom + 20, right: 20 }]}
         onPress={async () => {
           if (entries.length > 0) {
+            trackEvent("cashout_submitted", {
+              entry_count: entries.length,
+              is_edit: !!editDate,
+            });
             if (editDate) {
               await replaceSlipsForDate(editDate, entries);
             } else {

@@ -32,7 +32,8 @@ import {
   type AppGateRoute,
 } from "./store/onboardingStorage";
 import { Ionicons } from "@expo/vector-icons";
-
+import { initRevenueCat } from "./services/revenuecat";
+import { initAnalytics } from "./utils/analytics";
 import type { RootStackParamList } from "./navigationTypes";
 
 export type { RootStackParamList } from "./navigationTypes";
@@ -51,7 +52,7 @@ function HomeScreen({ navigation }: HomeScreenProps) {
 
   return (
     <View style={styles.container}>
-      <Header title="cashOutAI" />
+      <Header title="CashoutAI" />
 
       {/* Main Content */}
       <View
@@ -146,6 +147,11 @@ function AppNavigator() {
 }
 
 export default function App() {
+  useEffect(() => {
+    initAnalytics();
+    initRevenueCat();
+  }, []);
+
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
       <SafeAreaProvider>

@@ -25,7 +25,7 @@ export default function BoardingScreen({ navigation }: Props) {
 
       <View style={styles.imageWrap}>
         <Image
-          source={require("../IMG_0064.png")}
+          source={require("../assets/IMG_0064.png")}
           style={styles.image}
           resizeMode="contain"
         />

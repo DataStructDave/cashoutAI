@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import {
   View,
   Text,
@@ -13,6 +13,7 @@ import type { NativeStackScreenProps } from "@react-navigation/native-stack";
 import type { RootStackParamList } from "../navigationTypes";
 import { colors, fontSizes, radii, spacing } from "../theme";
 import { setPaywallUnlocked } from "../store/onboardingStorage";
+import { trackEvent } from "../utils/analytics";
 
 type Props = NativeStackScreenProps<RootStackParamList, "Paywall">;
 
@@ -37,9 +38,23 @@ export default function PaywallScreen({ navigation }: Props) {
   const minContentHeight =
     windowHeight - insets.top - insets.bottom - spacing.lg;
 
+  useEffect(() => {
+    trackEvent("paywall_viewed");
+  }, []);
+
   const goHome = async () => {
     await setPaywallUnlocked();
     navigation.replace("Home");
+  };
+
+  const handleSubscribe = () => {
+    trackEvent("paywall_conversion_attempt", { plan: selectedPlan });
+    goHome();
+  };
+
+  const handleRestore = () => {
+    trackEvent("paywall_restore_tapped");
+    goHome();
   };
 
   return (
@@ -125,7 +140,7 @@ export default function PaywallScreen({ navigation }: Props) {
         <TouchableOpacity
           style={styles.primaryButton}
           activeOpacity={0.88}
-          onPress={goHome}
+          onPress={handleSubscribe}
         >
           <Text style={styles.primaryButtonText}>
             Start My 3-Day Free Trial
@@ -141,7 +156,7 @@ export default function PaywallScreen({ navigation }: Props) {
         <TouchableOpacity
           style={styles.restoreButton}
           activeOpacity={0.88}
-          onPress={goHome}
+          onPress={handleRestore}
         >
           <Text style={styles.restoreButtonText}>Restore purchase</Text>
         </TouchableOpacity>

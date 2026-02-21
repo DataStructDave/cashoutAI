@@ -13,14 +13,8 @@ function apiHeaders(): Record<string, string> {
 const LAN_IP = "192.168.2.204";
 //`http://${LAN_IP}:3000`
 
-export const API_BASE_URL =
-  __DEV__
-    ? Platform.select({
-        ios: `http://${LAN_IP}:3000`,       // iOS Simulator + physical iPhone
-        android: "http://10.0.2.2:3000",    // Android Emulator
-        default: `http://${LAN_IP}:3000`,   // Web / others
-      })
-    : "https://your-production-api.com";
+export const API_BASE_URL = "https://cashoutai-production.up.railway.app";
+
 
 export type Entry = {
   subtotal?: string;

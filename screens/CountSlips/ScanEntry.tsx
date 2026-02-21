@@ -24,6 +24,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { colors, fontSizes, radii, spacing } from "../../theme";
 import { api, type Entry } from "../../api";
+import { trackEvent } from "../../utils/analytics";
 
 const KEY_CAMERA_ALERT_SEEN = "@cashoutai/camera_right_side_up_alert_seen";
 
@@ -126,6 +127,7 @@ export default function ScanEntry({
         (e): e is Entry => e != null && typeof e.total === "string"
       );
       if (entries.length > 0) {
+        trackEvent("slip_scan_completed", { entry_count: entries.length });
         onExtractedEntries?.(entries);
         Alert.alert(
           "Extracted",

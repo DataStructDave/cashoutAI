@@ -18,6 +18,7 @@ import ScanEntry from "./CountSlips/ScanEntry";
 import ManualEntry from "./CountSlips/ManualEntry";
 import type { Entry } from "./CountSlips/types";
 import { useEntryStore } from "../store/EntryStore";
+import { trackEvent } from "../utils/analytics";
 import { replaceSlipsForDate } from "../store/slipsStorage";
 import { colors, fontSizes, radii, spacing } from "../theme";
 
@@ -95,6 +96,7 @@ function CountSlipsScreenContent({ navigation, route }: Props) {
       total: formatMoney(total),
       paymentType: paymentMethod || undefined,
     });
+    trackEvent("manual_entry_added");
 
     setSubtotal("");
     setTip("");

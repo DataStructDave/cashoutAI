@@ -61,7 +61,7 @@ export default function ManualEntry({
           style={styles.input}
           value={subtotal}
           onChangeText={setSubtotal}
-          onBlur={() => setSubtotal((v) => formatMoney(v))}
+          onBlur={() => setSubtotal(formatMoney(subtotal))}
           placeholder="0.00"
           placeholderTextColor={colors.placeholder}
           keyboardType="decimal-pad"
@@ -73,7 +73,7 @@ export default function ManualEntry({
           style={styles.input}
           value={tip}
           onChangeText={setTip}
-          onBlur={() => setTip((v) => formatMoney(v))}
+          onBlur={() => setTip(formatMoney(tip))}
           placeholder="0.00"
           placeholderTextColor={colors.placeholder}
           keyboardType="decimal-pad"
@@ -85,7 +85,7 @@ export default function ManualEntry({
           style={styles.input}
           value={total}
           onChangeText={setTotal}
-          onBlur={() => setTotal((v) => formatMoney(v))}
+          onBlur={() => setTotal(formatMoney(total))}
           placeholder="0.00"
           placeholderTextColor={colors.placeholder}
           keyboardType="decimal-pad"
