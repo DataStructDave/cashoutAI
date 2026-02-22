@@ -6,6 +6,9 @@ import {
   TouchableOpacity,
   ScrollView,
   useWindowDimensions,
+  Image,
+  ActivityIndicator,
+  Alert,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
@@ -14,6 +17,14 @@ import type { RootStackParamList } from "../navigationTypes";
 import { colors, fontSizes, radii, spacing } from "../theme";
 import { setPaywallUnlocked } from "../store/onboardingStorage";
 import { trackEvent } from "../utils/analytics";
+import {
+  getOfferings,
+  getCustomerInfo,
+  hasPremiumAccess,
+  purchasePackage,
+  restorePurchases,
+} from "../services/revenuecat";
+import type { PurchasesPackage } from "react-native-purchases";
 
 type Props = NativeStackScreenProps<RootStackParamList, "Paywall">;
 
@@ -30,31 +41,138 @@ const TRUST_ITEMS = [
   { icon: "close-circle-outline" as const, label: "Cancel anytime" },
 ];
 
+const FALLBACK_MONTHLY_PRICE = "$9.99";
+const FALLBACK_YEARLY_PRICE = "$89.99";
+
 export default function PaywallScreen({ navigation }: Props) {
   const insets = useSafeAreaInsets();
   const { height: windowHeight } = useWindowDimensions();
   const [selectedPlan, setSelectedPlan] = useState<Plan>("yearly");
+  const [monthlyPackage, setMonthlyPackage] = useState<PurchasesPackage | null>(
+    null
+  );
+  const [annualPackage, setAnnualPackage] = useState<PurchasesPackage | null>(
+    null
+  );
+  const [loadingOfferings, setLoadingOfferings] = useState(true);
+  const [purchasing, setPurchasing] = useState(false);
+  const [restoring, setRestoring] = useState(false);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
   const minContentHeight =
     windowHeight - insets.top - insets.bottom - spacing.lg;
+
+  const selectedPackage =
+    selectedPlan === "yearly" ? annualPackage : monthlyPackage;
+  const monthlyPrice =
+    monthlyPackage?.product.priceString ?? FALLBACK_MONTHLY_PRICE;
+  const yearlyPrice =
+    annualPackage?.product.priceString ?? FALLBACK_YEARLY_PRICE;
+  const yearlyPerMonth =
+    annualPackage?.product.pricePerMonthString ?? "$7.49/mo";
 
   useEffect(() => {
     trackEvent("paywall_viewed");
   }, []);
 
-  const goHome = async () => {
+  useEffect(() => {
+    let cancelled = false;
+    getCustomerInfo().then((info) => {
+      if (cancelled) return;
+      if (info && hasPremiumAccess(info)) {
+        setPaywallUnlocked().then(() => navigation.replace("Home"));
+      }
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [navigation]);
+
+  useEffect(() => {
+    let cancelled = false;
+    setLoadingOfferings(true);
+    setErrorMessage(null);
+    getOfferings()
+      .then((offerings) => {
+        if (cancelled) return;
+        const current = offerings?.current ?? null;
+        setMonthlyPackage(current?.monthly ?? null);
+        setAnnualPackage(current?.annual ?? null);
+      })
+      .catch(() => {
+        if (!cancelled) setErrorMessage("Could not load plans.");
+      })
+      .finally(() => {
+        if (!cancelled) setLoadingOfferings(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  const unlockAndGoHome = async () => {
     await setPaywallUnlocked();
     navigation.replace("Home");
   };
 
-  const handleSubscribe = () => {
-    trackEvent("paywall_conversion_attempt", { plan: selectedPlan });
-    goHome();
+  const handleSubscribe = async () => {
+    setErrorMessage(null);
+    if (!selectedPackage) {
+      setErrorMessage("Plans are still loading. Please try again.");
+      return;
+    }
+    setPurchasing(true);
+    try {
+      trackEvent("paywall_conversion_attempt", { plan: selectedPlan });
+      const customerInfo = await purchasePackage(selectedPackage);
+      if (hasPremiumAccess(customerInfo)) {
+        await unlockAndGoHome();
+      } else {
+        setErrorMessage("Purchase did not grant access. Please try Restore.");
+      }
+    } catch (err: unknown) {
+      const userCancelled =
+        err && typeof err === "object" && "userCancelled" in err
+          ? Boolean((err as { userCancelled?: boolean }).userCancelled)
+          : false;
+      if (userCancelled) {
+        Alert.alert("Purchase cancelled");
+        return;
+      }
+      const message =
+        err && typeof err === "object" && "message" in err
+          ? String((err as { message: unknown }).message)
+          : "Purchase failed.";
+      setErrorMessage(message);
+      Alert.alert("Purchase failed", message);
+    } finally {
+      setPurchasing(false);
+    }
   };
 
-  const handleRestore = () => {
-    trackEvent("paywall_restore_tapped");
-    goHome();
+  const handleRestore = async () => {
+    setErrorMessage(null);
+    setRestoring(true);
+    try {
+      trackEvent("paywall_restore_tapped");
+      const customerInfo = await restorePurchases();
+      if (hasPremiumAccess(customerInfo)) {
+        await unlockAndGoHome();
+      } else {
+        const msg = "No active subscription found for this account.";
+        setErrorMessage(msg);
+        Alert.alert("No subscription", msg);
+      }
+    } catch (err: unknown) {
+      const message =
+        err && typeof err === "object" && "message" in err
+          ? String((err as { message: unknown }).message)
+          : "Restore failed.";
+      setErrorMessage(message);
+      Alert.alert("Restore failed", message);
+    } finally {
+      setRestoring(false);
+    }
   };
 
   return (
@@ -75,7 +193,14 @@ export default function PaywallScreen({ navigation }: Props) {
         ]}
         showsVerticalScrollIndicator={false}
       >
-        <Text style={styles.title}>Unlock cashOutAI</Text>
+        <View style={styles.titleRow}>
+          <Text style={styles.title}>Unlock CashoutAI</Text>
+          <Image
+            source={require("../assets/cashoutAI_icon.png")}
+            style={styles.titleLogo}
+            resizeMode="contain"
+          />
+        </View>
         <Text style={styles.subtitle}>
           Get the most out of your cashouts with full access to scanning,
           history, and analytics.
@@ -108,10 +233,11 @@ export default function PaywallScreen({ navigation }: Props) {
             ]}
             activeOpacity={0.88}
             onPress={() => setSelectedPlan("monthly")}
+            disabled={loadingOfferings}
           >
             <Text style={styles.planTitle}>Monthly</Text>
             <Text style={styles.planPrice}>
-              <Text style={styles.planAmount}>$9.99</Text>
+              <Text style={styles.planAmount}>{monthlyPrice}</Text>
               <Text style={styles.planPeriod}>/mo</Text>
             </Text>
           </TouchableOpacity>
@@ -124,41 +250,59 @@ export default function PaywallScreen({ navigation }: Props) {
             ]}
             activeOpacity={0.88}
             onPress={() => setSelectedPlan("yearly")}
+            disabled={loadingOfferings}
           >
             <View style={styles.badge}>
               <Text style={styles.badgeText}>Best value</Text>
             </View>
             <Text style={styles.planTitle}>Yearly</Text>
             <Text style={styles.planPrice}>
-              <Text style={styles.planAmount}>$89.99</Text>
+              <Text style={styles.planAmount}>{yearlyPrice}</Text>
               <Text style={styles.planPeriod}>/yr</Text>
             </Text>
             <Text style={styles.planNote}>Save 25%</Text>
           </TouchableOpacity>
         </View>
 
+        {errorMessage ? (
+          <Text style={styles.errorText}>{errorMessage}</Text>
+        ) : null}
+
         <TouchableOpacity
-          style={styles.primaryButton}
+          style={[
+            styles.primaryButton,
+            (purchasing || loadingOfferings) && styles.buttonDisabled,
+          ]}
           activeOpacity={0.88}
           onPress={handleSubscribe}
+          disabled={purchasing || loadingOfferings}
         >
-          <Text style={styles.primaryButtonText}>
-            Start My 3-Day Free Trial
-          </Text>
+          {purchasing ? (
+            <ActivityIndicator color={colors.onPrimary} />
+          ) : (
+            <Text style={styles.primaryButtonText}>
+              Start My 3-Day Free Trial
+            </Text>
+          )}
         </TouchableOpacity>
 
         <Text style={styles.reminderText}>
           {selectedPlan === "monthly"
-            ? "3 days free, then $9.99 per month"
-            : "3 days free, then $89.99 per year (7.49/mo)"}
+            ? `3 days free, then ${monthlyPrice} per month`
+            : `3 days free, then ${yearlyPrice} per year (${yearlyPerMonth})`}
         </Text>
 
         <TouchableOpacity
-          style={styles.restoreButton}
+          style={[styles.restoreButton, restoring && styles.buttonDisabled]}
           activeOpacity={0.88}
           onPress={handleRestore}
+          disabled={restoring}
         >
-          <Text style={styles.restoreButtonText}>Restore purchase</Text>
+          {restoring ? (
+            <ActivityIndicator color={colors.primary} size="small" />
+          ) : (
+            <Text style={styles.restoreButtonText}>Restore purchase</Text>
+          )}
         </TouchableOpacity>
       </ScrollView>
     </View>
@@ -176,12 +320,22 @@ const styles = StyleSheet.create({
     paddingTop: spacing["2xl"],
     paddingBottom: spacing.xl,
   },
+  titleRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: spacing.md,
+    marginBottom: spacing.sm,
+  },
   title: {
     fontSize: fontSizes["3xl"],
     fontWeight: "700",
     color: colors.primaryDark,
     textAlign: "center",
-    marginBottom: spacing.sm,
+  },
+  titleLogo: {
+    width: 44,
+    height: 44,
   },
   subtitle: {
     fontSize: fontSizes.base,
@@ -286,6 +440,15 @@ const styles = StyleSheet.create({
     textAlign: "center",
     marginTop: spacing.sm,
     marginBottom: spacing.sm,
+  },
+  errorText: {
+    fontSize: fontSizes.sm,
+    color: "#c00",
+    textAlign: "center",
+    marginTop: spacing.sm,
+  },
+  buttonDisabled: {
+    opacity: 0.7,
   },
   primaryButton: {
     backgroundColor: colors.primary,

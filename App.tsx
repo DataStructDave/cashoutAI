@@ -32,7 +32,7 @@ import {
   type AppGateRoute,
 } from "./store/onboardingStorage";
 import { Ionicons } from "@expo/vector-icons";
-import { initRevenueCat } from "./services/revenuecat";
+import { initRevenueCat, logOfferingsDebug } from "./services/revenuecat";
 import { initAnalytics } from "./utils/analytics";
 import type { RootStackParamList } from "./navigationTypes";
 
@@ -150,6 +150,8 @@ export default function App() {
   useEffect(() => {
     initAnalytics();
     initRevenueCat();
+
+    logOfferingsDebug();
   }, []);
 
   return (
