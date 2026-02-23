@@ -150,8 +150,6 @@ export default function App() {
   useEffect(() => {
     initAnalytics();
     initRevenueCat();
-
-    logOfferingsDebug();
   }, []);
 
   return (

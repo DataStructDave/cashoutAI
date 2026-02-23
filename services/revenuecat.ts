@@ -21,7 +21,7 @@ export function initRevenueCat() {
   }
 
   try {
-    Purchases.setLogLevel(Purchases.LOG_LEVEL.DEBUG);
+    Purchases.setLogLevel(__DEV__ ? Purchases.LOG_LEVEL.DEBUG : Purchases.LOG_LEVEL.WARN);
     if (Platform.OS === "ios") {
       Purchases.configure({ apiKey: IOS_API_KEY });
     }

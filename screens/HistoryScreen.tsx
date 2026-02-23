@@ -127,11 +127,7 @@ export default function HistoryScreen({ navigation, route }: Props) {
 
       <TouchableOpacity
         style={[styles.backButton, { top: HEADER_HEIGHT + insets.top + 6 }]}
-        onPress={() =>
-          route.params?.fromFixChanges
-            ? navigation.navigate("Home")
-            : navigation.goBack()
-        }
+        onPress={() => navigation.navigate("Home")}
       >
         <Ionicons name="chevron-back" size={26} color={colors.primary} />
       </TouchableOpacity>
@@ -289,6 +285,18 @@ export default function HistoryScreen({ navigation, route }: Props) {
         ) : selectedDate ? (
           <View style={styles.emptyState}>
             <Text style={styles.muted}>No slips recorded.</Text>
+            <TouchableOpacity
+              style={styles.emptyStateAddBtn}
+              onPress={() =>
+                navigation.navigate("CountSlips", {
+                  entries: [],
+                  date: selectedDate,
+                })
+              }
+              activeOpacity={0.7}
+            >
+              <Ionicons name="add-circle" size={28} color={colors.primary} />
+            </TouchableOpacity>
           </View>
         ) : (
           <View style={styles.emptyState}>
@@ -431,6 +439,12 @@ const styles = StyleSheet.create({
   emptyState: {
     marginTop: spacing.xl,
     alignItems: "center",
+    flexDirection: "row",
+    gap: spacing.sm,
+    justifyContent: "center",
+  },
+  emptyStateAddBtn: {
+    padding: 4,
   },
 
   sectionTitle: {

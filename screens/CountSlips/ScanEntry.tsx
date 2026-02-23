@@ -14,8 +14,10 @@ import {
 } from "react-native";
 import {
   PinchGestureHandler,
+  PanGestureHandler,
   State,
   type PinchGestureHandlerEventPayload,
+  type PanGestureHandlerEventPayload,
 } from "react-native-gesture-handler";
 import { CameraView, useCameraPermissions } from "expo-camera";
 import * as ImagePicker from "expo-image-picker";
@@ -28,7 +30,7 @@ import { trackEvent } from "../../utils/analytics";
 
 const KEY_CAMERA_ALERT_SEEN = "@cashoutai/camera_right_side_up_alert_seen";
 
-const { width: SCREEN_WIDTH } = Dimensions.get("window");
+const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get("window");
 
 type ScanEntryProps = {
   selectedImages: string[];
@@ -51,6 +53,18 @@ export default function ScanEntry({
   const [cameraOpen, setCameraOpen] = useState(false);
   const [galleryPickerOpen, setGalleryPickerOpen] = useState(false);
   const [previewImage, setPreviewImage] = useState<string | null>(null);
+  const previewScale = useRef(new Animated.Value(1)).current;
+  const previewScaleSaved = useRef(1);
+  const previewTranslateX = useRef(new Animated.Value(0)).current;
+  const previewTranslateY = useRef(new Animated.Value(0)).current;
+  const previewPanSavedX = useRef(0);
+  const previewPanSavedY = useRef(0);
+  const previewPanBaseX = useRef(0);
+  const previewPanBaseY = useRef(0);
+  const previewPanLastTx = useRef(0);
+  const previewPanLastTy = useRef(0);
+  const pinchPreviewRef = useRef<React.ComponentRef<typeof PinchGestureHandler>>(null);
+  const panPreviewRef = useRef<React.ComponentRef<typeof PanGestureHandler>>(null);
   const [permission, requestPermission] = useCameraPermissions();
   const cameraRef = useRef<CameraView>(null);
   const pulseAnim = useRef(new Animated.Value(1)).current;
@@ -90,6 +104,72 @@ export default function ScanEntry({
     );
     setZoom(newZoom);
   };
+
+  // Preview image pinch zoom (works on iOS & Android)
+  const PREVIEW_ZOOM_MIN = 1;
+  const PREVIEW_ZOOM_MAX = 4;
+  const previewLastTotal = useRef(1);
+  const onPreviewPinchStateChange = (evt: { nativeEvent: { state: number } }) => {
+    if (evt.nativeEvent.state === State.END || evt.nativeEvent.state === State.CANCELLED) {
+      previewScaleSaved.current = previewLastTotal.current;
+      previewScale.flattenOffset();
+    } else if (evt.nativeEvent.state === State.BEGAN) {
+      previewScale.setOffset(previewScaleSaved.current);
+      previewScale.setValue(0);
+    }
+  };
+  const onPreviewPinchGesture = (evt: {
+    nativeEvent: PinchGestureHandlerEventPayload;
+  }) => {
+    const { scale } = evt.nativeEvent;
+    const base = previewScaleSaved.current;
+    const total = Math.max(PREVIEW_ZOOM_MIN, Math.min(PREVIEW_ZOOM_MAX, base * scale));
+    previewLastTotal.current = total;
+    previewScale.setValue(total - base);
+  };
+
+  // Preview pan (drag) – works with pinch so you can pan when zoomed
+  const onPreviewPanStateChange = (evt: { nativeEvent: { state: number } }) => {
+    if (evt.nativeEvent.state === State.END || evt.nativeEvent.state === State.CANCELLED) {
+      previewPanSavedX.current = previewPanBaseX.current + previewPanLastTx.current;
+      previewPanSavedY.current = previewPanBaseY.current + previewPanLastTy.current;
+      previewTranslateX.flattenOffset();
+      previewTranslateY.flattenOffset();
+    } else if (evt.nativeEvent.state === State.BEGAN) {
+      previewPanBaseX.current = previewPanSavedX.current;
+      previewPanBaseY.current = previewPanSavedY.current;
+      previewTranslateX.setOffset(previewPanSavedX.current);
+      previewTranslateX.setValue(0);
+      previewTranslateY.setOffset(previewPanSavedY.current);
+      previewTranslateY.setValue(0);
+    }
+  };
+  const onPreviewPanGesture = (evt: { nativeEvent: PanGestureHandlerEventPayload }) => {
+    const { translationX, translationY } = evt.nativeEvent;
+    const scale = previewScaleSaved.current;
+    const maxTx = Math.max(0, (SCREEN_WIDTH * (scale - 1)) / 2);
+    const maxTy = Math.max(0, (SCREEN_HEIGHT * (scale - 1)) / 2);
+    const clampedX = Math.max(-maxTx, Math.min(maxTx, previewPanBaseX.current + translationX));
+    const clampedY = Math.max(-maxTy, Math.min(maxTy, previewPanBaseY.current + translationY));
+    previewPanLastTx.current = clampedX - previewPanBaseX.current;
+    previewPanLastTy.current = clampedY - previewPanBaseY.current;
+    previewTranslateX.setValue(previewPanLastTx.current);
+    previewTranslateY.setValue(previewPanLastTy.current);
+  };
+
+  useEffect(() => {
+    if (previewImage) {
+      previewScale.setOffset(0);
+      previewScale.setValue(1);
+      previewScaleSaved.current = 1;
+      previewTranslateX.setOffset(0);
+      previewTranslateX.setValue(0);
+      previewTranslateY.setOffset(0);
+      previewTranslateY.setValue(0);
+      previewPanSavedX.current = 0;
+      previewPanSavedY.current = 0;
+    }
+  }, [previewImage]);
 
   useEffect(() => {
     if (!extracting) {
@@ -417,7 +497,7 @@ export default function ScanEntry({
         </View>
       </Modal>
 
-      {/* Image Preview Modal */}
+      {/* Image Preview Modal - pinch to zoom, drag to pan when zoomed */}
       <Modal
         visible={previewImage !== null}
         transparent
@@ -425,25 +505,45 @@ export default function ScanEntry({
         onRequestClose={() => setPreviewImage(null)}
       >
         <View style={styles.previewContainer}>
-          <TouchableOpacity
-            style={styles.previewBackdrop}
-            activeOpacity={1}
-            onPress={() => setPreviewImage(null)}
+          <PanGestureHandler
+            ref={panPreviewRef}
+            onHandlerStateChange={onPreviewPanStateChange}
+            onGestureEvent={onPreviewPanGesture}
+            simultaneousHandlers={pinchPreviewRef}
           >
-            <TouchableOpacity
-              style={styles.previewCloseButton}
-              onPress={() => setPreviewImage(null)}
-              activeOpacity={0.7}
+            <PinchGestureHandler
+              ref={pinchPreviewRef}
+              onHandlerStateChange={onPreviewPinchStateChange}
+              onGestureEvent={onPreviewPinchGesture}
+              simultaneousHandlers={panPreviewRef}
             >
-              <Ionicons name="close" size={32} color={colors.white} />
-            </TouchableOpacity>
-            {previewImage && (
-              <Image
-                source={{ uri: previewImage }}
-                style={styles.previewImage}
-                resizeMode="contain"
-              />
-            )}
+              <View style={styles.previewBackdrop}>
+                {previewImage && (
+                  <Animated.Image
+                    source={{ uri: previewImage }}
+                    style={[
+                      styles.previewImage,
+                      { width: SCREEN_WIDTH, height: SCREEN_HEIGHT },
+                      {
+                        transform: [
+                          { translateX: previewTranslateX },
+                          { translateY: previewTranslateY },
+                          { scale: previewScale },
+                        ],
+                      },
+                    ]}
+                    resizeMode="contain"
+                  />
+                )}
+              </View>
+            </PinchGestureHandler>
+          </PanGestureHandler>
+          <TouchableOpacity
+            style={[styles.previewCloseButton, { top: insets.top + 16 }]}
+            onPress={() => setPreviewImage(null)}
+            activeOpacity={0.7}
+          >
+            <Ionicons name="close" size={32} color={colors.white} />
           </TouchableOpacity>
         </View>
       </Modal>
