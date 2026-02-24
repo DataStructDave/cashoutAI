@@ -6,6 +6,8 @@ import {
   View,
   TouchableOpacity,
   ActivityIndicator,
+  Linking,
+  Alert,
 } from "react-native";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import {
@@ -32,7 +34,11 @@ import {
   type AppGateRoute,
 } from "./store/onboardingStorage";
 import { Ionicons } from "@expo/vector-icons";
-import { initRevenueCat, logOfferingsDebug } from "./services/revenuecat";
+import {
+  initRevenueCat,
+  restorePurchases,
+  hasPremiumAccess,
+} from "./services/revenuecat";
 import { initAnalytics } from "./utils/analytics";
 import type { RootStackParamList } from "./navigationTypes";
 
@@ -40,15 +46,45 @@ export type { RootStackParamList } from "./navigationTypes";
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
 
+const PRIVACY_POLICY_URL = process.env.EXPO_PUBLIC_PRIVACY_POLICY_URL ?? "";
+const TERMS_URL =
+  process.env.EXPO_PUBLIC_TERMS_URL ??
+  "https://www.apple.com/legal/internet-services/itunes/dev/stdeula/";
+
 type HomeScreenProps = NativeStackScreenProps<RootStackParamList, "Home">;
 
 function HomeScreen({ navigation }: HomeScreenProps) {
   const insets = useSafeAreaInsets();
+  const [restoring, setRestoring] = useState(false);
 
   // Ensure paywall-unlocked is persisted when user reaches Home (fixes cold start opening to Paywall)
   useEffect(() => {
     setPaywallUnlocked();
   }, []);
+
+  const handleRestore = async () => {
+    setRestoring(true);
+    try {
+      const customerInfo = await restorePurchases();
+      if (hasPremiumAccess(customerInfo)) {
+        await setPaywallUnlocked();
+        Alert.alert("Restored", "Your subscription has been restored.");
+      } else {
+        Alert.alert(
+          "No subscription",
+          "No active subscription found for this account.",
+        );
+      }
+    } catch (err: unknown) {
+      const message =
+        err && typeof err === "object" && "message" in err
+          ? String((err as { message: unknown }).message)
+          : "Restore failed.";
+      Alert.alert("Restore failed", message);
+    } finally {
+      setRestoring(false);
+    }
+  };
 
   return (
     <View style={styles.container}>
@@ -104,6 +140,32 @@ function HomeScreen({ navigation }: HomeScreenProps) {
               </Text>
             </TouchableOpacity>
           )}
+        </View>
+      </View>
+
+      <View
+        style={[styles.footer, { paddingBottom: insets.bottom + spacing.md }]}
+      >
+        <View style={styles.footerLinksRow}>
+          {PRIVACY_POLICY_URL ? (
+            <>
+              <TouchableOpacity
+                onPress={() => Linking.openURL(PRIVACY_POLICY_URL)}
+                activeOpacity={0.7}
+                style={styles.footerLinkTouch}
+              >
+                <Text style={styles.footerLink}>Privacy</Text>
+              </TouchableOpacity>
+              <Text style={styles.footerSeparator}> · </Text>
+            </>
+          ) : null}
+          <TouchableOpacity
+            onPress={() => Linking.openURL(TERMS_URL)}
+            activeOpacity={0.7}
+            style={styles.footerLinkTouch}
+          >
+            <Text style={styles.footerLink}>Terms and conditions`</Text>
+          </TouchableOpacity>
         </View>
       </View>
 
@@ -249,6 +311,32 @@ const styles = StyleSheet.create({
   },
   resetButtonText: {
     fontSize: fontSizes.sm,
+    color: colors.textMuted,
+  },
+
+  footer: {
+    paddingHorizontal: spacing.lg,
+    paddingTop: spacing.lg,
+    alignItems: "center",
+  },
+  footerLinksRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    flexWrap: "wrap",
+    justifyContent: "center",
+  },
+  footerLinkTouch: {
+    paddingVertical: spacing.xs,
+    paddingHorizontal: 2,
+  },
+  footerLink: {
+    fontSize: fontSizes.sm,
+    color: colors.primary,
+    textDecorationLine: "underline",
+    fontWeight: "500",
+  },
+  footerSeparator: {
+    fontSize: fontSizes.xs,
     color: colors.textMuted,
   },
 });

@@ -4,11 +4,11 @@ import {
   Text,
   StyleSheet,
   TouchableOpacity,
-  ScrollView,
   useWindowDimensions,
   Image,
   ActivityIndicator,
   Alert,
+  Linking,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
@@ -44,20 +44,25 @@ const TRUST_ITEMS = [
 const FALLBACK_MONTHLY_PRICE = "$9.99";
 const FALLBACK_YEARLY_PRICE = "$89.99";
 
+// Set in .env or EAS: EXPO_PUBLIC_PRIVACY_POLICY_URL, EXPO_PUBLIC_TERMS_URL (optional; defaults to Apple EULA)
+const PRIVACY_POLICY_URL = process.env.EXPO_PUBLIC_PRIVACY_POLICY_URL ?? "";
+const TERMS_URL =
+  process.env.EXPO_PUBLIC_TERMS_URL ??
+  "https://www.apple.com/legal/internet-services/itunes/dev/stdeula/";
+
 export default function PaywallScreen({ navigation }: Props) {
   const insets = useSafeAreaInsets();
   const { height: windowHeight } = useWindowDimensions();
   const [selectedPlan, setSelectedPlan] = useState<Plan>("yearly");
   const [monthlyPackage, setMonthlyPackage] = useState<PurchasesPackage | null>(
-    null
+    null,
   );
   const [annualPackage, setAnnualPackage] = useState<PurchasesPackage | null>(
-    null
+    null,
   );
   const [loadingOfferings, setLoadingOfferings] = useState(true);
   const [purchasing, setPurchasing] = useState(false);
   const [restoring, setRestoring] = useState(false);
-  const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
   const minContentHeight =
     windowHeight - insets.top - insets.bottom - spacing.lg;
@@ -91,7 +96,6 @@ export default function PaywallScreen({ navigation }: Props) {
   useEffect(() => {
     let cancelled = false;
     setLoadingOfferings(true);
-    setErrorMessage(null);
     getOfferings()
       .then((offerings) => {
         if (cancelled) return;
@@ -100,7 +104,11 @@ export default function PaywallScreen({ navigation }: Props) {
         setAnnualPackage(current?.annual ?? null);
       })
       .catch(() => {
-        if (!cancelled) setErrorMessage("Could not load plans.");
+        if (!cancelled)
+          Alert.alert(
+            "Could not load plans",
+            "Could not load plans. Please try again.",
+          );
       })
       .finally(() => {
         if (!cancelled) setLoadingOfferings(false);
@@ -116,9 +124,8 @@ export default function PaywallScreen({ navigation }: Props) {
   };
 
   const handleSubscribe = async () => {
-    setErrorMessage(null);
     if (!selectedPackage) {
-      setErrorMessage("Plans are still loading. Please try again.");
+      Alert.alert("Please wait", "Plans are still loading. Please try again.");
       return;
     }
     setPurchasing(true);
@@ -128,7 +135,10 @@ export default function PaywallScreen({ navigation }: Props) {
       if (hasPremiumAccess(customerInfo)) {
         await unlockAndGoHome();
       } else {
-        setErrorMessage("Purchase did not grant access. Please try Restore.");
+        Alert.alert(
+          "Purchase",
+          "Purchase did not grant access. Please try Restore.",
+        );
       }
     } catch (err: unknown) {
       const userCancelled =
@@ -143,7 +153,6 @@ export default function PaywallScreen({ navigation }: Props) {
         err && typeof err === "object" && "message" in err
           ? String((err as { message: unknown }).message)
           : "Purchase failed.";
-      setErrorMessage(message);
       Alert.alert("Purchase failed", message);
     } finally {
       setPurchasing(false);
@@ -151,7 +160,6 @@ export default function PaywallScreen({ navigation }: Props) {
   };
 
   const handleRestore = async () => {
-    setErrorMessage(null);
     setRestoring(true);
     try {
       trackEvent("paywall_restore_tapped");
@@ -159,16 +167,16 @@ export default function PaywallScreen({ navigation }: Props) {
       if (hasPremiumAccess(customerInfo)) {
         await unlockAndGoHome();
       } else {
-        const msg = "No active subscription found for this account.";
-        setErrorMessage(msg);
-        Alert.alert("No subscription", msg);
+        Alert.alert(
+          "No subscription",
+          "No active subscription found for this account.",
+        );
       }
     } catch (err: unknown) {
       const message =
         err && typeof err === "object" && "message" in err
           ? String((err as { message: unknown }).message)
           : "Restore failed.";
-      setErrorMessage(message);
       Alert.alert("Restore failed", message);
     } finally {
       setRestoring(false);
@@ -182,16 +190,14 @@ export default function PaywallScreen({ navigation }: Props) {
         { paddingTop: insets.top, paddingBottom: insets.bottom },
       ]}
     >
-      <ScrollView
-        contentContainerStyle={[
+      <View
+        style={[
           styles.scrollContent,
           {
-            minHeight: minContentHeight,
-            flexGrow: 1,
+            flex: 1,
             justifyContent: "space-evenly",
           },
         ]}
-        showsVerticalScrollIndicator={false}
       >
         <View style={styles.titleRow}>
           <Text style={styles.title}>Unlock CashoutAI</Text>
@@ -264,10 +270,6 @@ export default function PaywallScreen({ navigation }: Props) {
           </TouchableOpacity>
         </View>
 
-        {errorMessage ? (
-          <Text style={styles.errorText}>{errorMessage}</Text>
-        ) : null}
-
         <TouchableOpacity
           style={[
             styles.primaryButton,
@@ -304,7 +306,33 @@ export default function PaywallScreen({ navigation }: Props) {
             <Text style={styles.restoreButtonText}>Restore purchase</Text>
           )}
         </TouchableOpacity>
-      </ScrollView>
+
+        <View style={styles.termsBlock}>
+          <Text style={styles.termsText}>
+            Subscription automatically renews unless cancelled. Payment will be
+            charged to your Apple ID. You can manage or cancel in Settings.
+          </Text>
+          <View style={styles.termsLinksRow}>
+            {PRIVACY_POLICY_URL ? (
+              <TouchableOpacity
+                onPress={() => Linking.openURL(PRIVACY_POLICY_URL)}
+                activeOpacity={0.7}
+              >
+                <Text style={styles.termsLink}>Privacy Policy</Text>
+              </TouchableOpacity>
+            ) : null}
+            {PRIVACY_POLICY_URL && TERMS_URL ? (
+              <Text style={styles.termsSeparator}> · </Text>
+            ) : null}
+            <TouchableOpacity
+              onPress={() => Linking.openURL(TERMS_URL)}
+              activeOpacity={0.7}
+            >
+              <Text style={styles.termsLink}>Terms of Use</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </View>
     </View>
   );
 }
@@ -313,19 +341,19 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: colors.background,
-    marginTop: spacing.lg,
+    marginTop: spacing.sm,
   },
   scrollContent: {
     paddingHorizontal: spacing["3xl"],
     paddingTop: spacing["2xl"],
-    paddingBottom: spacing.xl,
+    paddingBottom: spacing["3xl"],
   },
   titleRow: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
     gap: spacing.md,
-    marginBottom: spacing.sm,
+    marginBottom: spacing.md,
   },
   title: {
     fontSize: fontSizes["3xl"],
@@ -334,6 +362,7 @@ const styles = StyleSheet.create({
     textAlign: "center",
   },
   titleLogo: {
+    //44
     width: 44,
     height: 44,
   },
@@ -341,7 +370,7 @@ const styles = StyleSheet.create({
     fontSize: fontSizes.base,
     color: colors.textMuted,
     textAlign: "center",
-    marginBottom: spacing.lg,
+    marginBottom: spacing.xl,
     lineHeight: 24,
   },
   features: {
@@ -349,6 +378,7 @@ const styles = StyleSheet.create({
     borderRadius: radii.lg,
     padding: spacing.xl,
     gap: spacing.lg,
+    marginBottom: spacing.xl,
   },
   featureRow: {
     flexDirection: "row",
@@ -364,6 +394,7 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     justifyContent: "center",
     gap: spacing.xl,
+    marginBottom: spacing.md,
   },
   trustItem: {
     flexDirection: "row",
@@ -377,12 +408,13 @@ const styles = StyleSheet.create({
   planRow: {
     flexDirection: "row",
     gap: spacing.md,
+    marginTop: spacing.sm,
   },
   card: {
     backgroundColor: colors.surface,
     borderRadius: radii.lg,
     padding: spacing.xl,
-    marginBottom: spacing.md,
+    marginBottom: spacing.lg,
     borderWidth: 2,
     borderColor: colors.primary,
     position: "relative",
@@ -438,14 +470,7 @@ const styles = StyleSheet.create({
     fontSize: fontSizes.sm,
     color: colors.textMuted,
     textAlign: "center",
-    marginTop: spacing.sm,
-    marginBottom: spacing.sm,
-  },
-  errorText: {
-    fontSize: fontSizes.sm,
-    color: "#c00",
-    textAlign: "center",
-    marginTop: spacing.sm,
+    marginTop: spacing.md,
   },
   buttonDisabled: {
     opacity: 0.7,
@@ -455,8 +480,8 @@ const styles = StyleSheet.create({
     paddingVertical: spacing.lg,
     borderRadius: radii.lg,
     alignItems: "center",
-    marginTop: spacing.lg,
-    marginBottom: spacing.sm,
+    marginTop: spacing.xl,
+    marginBottom: spacing.md,
     shadowColor: colors.shadowPrimary,
     shadowOffset: { width: 0, height: 3 },
     shadowOpacity: 0.25,
@@ -471,10 +496,39 @@ const styles = StyleSheet.create({
   restoreButton: {
     paddingVertical: spacing.lg,
     alignItems: "center",
+    marginTop: spacing.sm,
   },
   restoreButtonText: {
     fontSize: fontSizes.base,
     color: colors.primary,
     fontWeight: "600",
+  },
+  termsBlock: {
+    marginTop: spacing.md,
+    paddingTop: spacing.sm,
+    alignItems: "center",
+  },
+  termsText: {
+    fontSize: fontSizes.xs,
+    color: colors.textMuted,
+    textAlign: "center",
+    lineHeight: 18,
+    marginBottom: spacing.md,
+  },
+  termsLinksRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    flexWrap: "wrap",
+    justifyContent: "center",
+  },
+  termsLink: {
+    fontSize: fontSizes.sm,
+    color: colors.primary,
+    textDecorationLine: "underline",
+    fontWeight: "500",
+  },
+  termsSeparator: {
+    fontSize: fontSizes.sm,
+    color: colors.textMuted,
   },
 });
