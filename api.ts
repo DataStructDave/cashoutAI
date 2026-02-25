@@ -1,17 +1,12 @@
-import { Platform } from "react-native";
 
 // Optional: when backend uses API_SECRET, set this (e.g. via app.config.js extra.apiSecret or EAS env EXPO_PUBLIC_API_SECRET)
-const API_KEY = process.env.EXPO_PUBLIC_API_SECRET ?? undefined;
+const API_KEY = process.env.EXPO_PUBLIC_CLIENT_ID ?? undefined;
 
 function apiHeaders(): Record<string, string> {
   const h: Record<string, string> = {};
   if (API_KEY) h["x-api-key"] = API_KEY;
   return h;
 }
-
-// Mac LAN IP for physical devices
-const LAN_IP = "192.168.2.204";
-//`http://${LAN_IP}:3000`
 
 export const API_BASE_URL = "https://cashoutai-production.up.railway.app";
 
