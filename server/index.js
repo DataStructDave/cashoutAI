@@ -111,8 +111,8 @@ Ensure the output is valid JSON and matches the schema exactly.
 `;
 
 
-const IMAGE_MAX = 1536;
-const JPEG_QUALITY = 99;
+const IMAGE_MAX = 2048;
+const JPEG_QUALITY = 100;
 
 /** Smaller images + one vision call = faster upload and inference */
 async function preprocessImage(buffer, mimetype) {
@@ -192,7 +192,7 @@ app.post(
           },
         ],
         temperature: 0,
-        max_tokens: Math.min(4096, 400 + processed.length * 300),
+        max_tokens: Math.min(4096, 400 + processed.length * 350),
         response_format: { type: "json_object" },
       });
 
