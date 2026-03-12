@@ -9,6 +9,9 @@ function apiHeaders(): Record<string, string> {
 }
 
 export const API_BASE_URL = "https://cashoutai-production.up.railway.app";
+//export const API_BASE_URL = "http://192.168.2.204:3000";
+
+
 
 
 export type Entry = {

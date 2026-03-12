@@ -16,7 +16,8 @@
       "supportsTablet": true,
       "bundleIdentifier": "com.daviddaou.cashoutai",
       "infoPlist": {
-        "ITSAppUsesNonExemptEncryption": false
+        "ITSAppUsesNonExemptEncryption": false,
+        "NSCameraUsageDescription": "Camera access is used to scan receipts. Receipt images may be securely sent to OpenAI for AI processing to extract totals, tips, and payment information."
       }
     },
     "android": {

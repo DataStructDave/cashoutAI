@@ -164,7 +164,7 @@ function HomeScreen({ navigation }: HomeScreenProps) {
             activeOpacity={0.7}
             style={styles.footerLinkTouch}
           >
-            <Text style={styles.footerLink}>Terms and conditions`</Text>
+            <Text style={styles.footerLink}>Terms and Conditions</Text>
           </TouchableOpacity>
         </View>
       </View>

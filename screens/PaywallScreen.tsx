@@ -4,7 +4,6 @@ import {
   Text,
   StyleSheet,
   TouchableOpacity,
-  useWindowDimensions,
   Image,
   ActivityIndicator,
   Alert,
@@ -52,7 +51,6 @@ const TERMS_URL =
 
 export default function PaywallScreen({ navigation }: Props) {
   const insets = useSafeAreaInsets();
-  const { height: windowHeight } = useWindowDimensions();
   const [selectedPlan, setSelectedPlan] = useState<Plan>("yearly");
   const [monthlyPackage, setMonthlyPackage] = useState<PurchasesPackage | null>(
     null,
@@ -63,9 +61,6 @@ export default function PaywallScreen({ navigation }: Props) {
   const [loadingOfferings, setLoadingOfferings] = useState(true);
   const [purchasing, setPurchasing] = useState(false);
   const [restoring, setRestoring] = useState(false);
-
-  const minContentHeight =
-    windowHeight - insets.top - insets.bottom - spacing.lg;
 
   const selectedPackage =
     selectedPlan === "yearly" ? annualPackage : monthlyPackage;
@@ -207,15 +202,11 @@ export default function PaywallScreen({ navigation }: Props) {
             resizeMode="contain"
           />
         </View>
-        <Text style={styles.subtitle}>
-          Get the most out of your cashouts with full access to scanning,
-          history, and analytics.
-        </Text>
 
         <View style={styles.features}>
           {FEATURES.map(({ icon, label }) => (
             <View key={label} style={styles.featureRow}>
-              <Ionicons name={icon} size={22} color={colors.primary} />
+              <Ionicons name={icon} size={20} color={colors.primary} />
               <Text style={styles.featureLabel}>{label}</Text>
             </View>
           ))}
@@ -344,9 +335,9 @@ const styles = StyleSheet.create({
     marginTop: spacing.sm,
   },
   scrollContent: {
-    paddingHorizontal: spacing["3xl"],
-    paddingTop: spacing["2xl"],
-    paddingBottom: spacing["3xl"],
+    paddingHorizontal: spacing["2xl"],
+    paddingTop: spacing.xl,
+    paddingBottom: spacing["2xl"],
   },
   titleRow: {
     flexDirection: "row",
@@ -362,23 +353,15 @@ const styles = StyleSheet.create({
     textAlign: "center",
   },
   titleLogo: {
-    //44
-    width: 44,
-    height: 44,
-  },
-  subtitle: {
-    fontSize: fontSizes.base,
-    color: colors.textMuted,
-    textAlign: "center",
-    marginBottom: spacing.xl,
-    lineHeight: 24,
+    width: 40,
+    height: 40,
   },
   features: {
     backgroundColor: colors.surface,
     borderRadius: radii.lg,
-    padding: spacing.xl,
-    gap: spacing.lg,
-    marginBottom: spacing.xl,
+    padding: spacing.lg,
+    gap: spacing.md,
+    marginBottom: spacing.lg,
   },
   featureRow: {
     flexDirection: "row",
@@ -386,20 +369,20 @@ const styles = StyleSheet.create({
     gap: spacing.md,
   },
   featureLabel: {
-    fontSize: fontSizes.md,
+    fontSize: fontSizes.base,
     color: colors.text,
     fontWeight: "500",
   },
   trustRow: {
     flexDirection: "row",
     justifyContent: "center",
-    gap: spacing.xl,
+    gap: spacing.lg,
     marginBottom: spacing.md,
   },
   trustItem: {
     flexDirection: "row",
     alignItems: "center",
-    gap: spacing.xs,
+    gap: spacing.sm,
   },
   trustLabel: {
     fontSize: fontSizes.sm,
@@ -413,8 +396,8 @@ const styles = StyleSheet.create({
   card: {
     backgroundColor: colors.surface,
     borderRadius: radii.lg,
-    padding: spacing.xl,
-    marginBottom: spacing.lg,
+    padding: spacing.lg,
+    marginBottom: spacing.md,
     borderWidth: 2,
     borderColor: colors.primary,
     position: "relative",
@@ -480,7 +463,7 @@ const styles = StyleSheet.create({
     paddingVertical: spacing.lg,
     borderRadius: radii.lg,
     alignItems: "center",
-    marginTop: spacing.xl,
+    marginTop: spacing.md,
     marginBottom: spacing.md,
     shadowColor: colors.shadowPrimary,
     shadowOffset: { width: 0, height: 3 },
@@ -494,7 +477,7 @@ const styles = StyleSheet.create({
     color: colors.onPrimary,
   },
   restoreButton: {
-    paddingVertical: spacing.lg,
+    paddingVertical: spacing.md,
     alignItems: "center",
     marginTop: spacing.sm,
   },
@@ -522,7 +505,7 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
   termsLink: {
-    fontSize: fontSizes.sm,
+    fontSize: fontSizes.base,
     color: colors.primary,
     textDecorationLine: "underline",
     fontWeight: "500",

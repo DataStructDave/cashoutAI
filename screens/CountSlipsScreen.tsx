@@ -7,6 +7,7 @@ import {
   TouchableWithoutFeedback,
   Keyboard,
   Alert,
+  BackHandler,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
@@ -79,6 +80,22 @@ function CountSlipsScreenContent({ navigation, route }: Props) {
   }, [subtotal, tip, isTotalManual]);
   /* --------------------------------------------- */
 
+  // Block back (header button or Android back) while extracting
+  useEffect(() => {
+    const onBack = () => {
+      if (extracting) {
+        Alert.alert(
+          "Please wait",
+          "Your receipts are still being processed. Please wait for the server to finish before leaving."
+        );
+        return true;
+      }
+      return false;
+    };
+    const sub = BackHandler.addEventListener("hardwareBackPress", onBack);
+    return () => sub.remove();
+  }, [extracting]);
+
   const formatMoney = (s: string) => {
     const cleaned = s.replace(/^\s*\$?\s*/, "").trim();
     if (!cleaned) return "";
@@ -125,11 +142,18 @@ function CountSlipsScreenContent({ navigation, route }: Props) {
     <View style={styles.container}>
       <TouchableWithoutFeedback onPress={Keyboard.dismiss} accessible={false}>
         <View style={styles.container}>
-          <Header title="cashOutAI" />
+          <Header title="CashoutAI" />
 
           <TouchableOpacity
             style={[styles.backButton, { top: HEADER_HEIGHT + insets.top + 8 }]}
             onPress={() => {
+              if (extracting) {
+                Alert.alert(
+                  "Please wait",
+                  "Your receipts are still being processed. Please wait for the server to finish before leaving."
+                );
+                return;
+              }
               if (isEditingFromHistory) {
                 clearEntries();
                 clearImages();
@@ -265,7 +289,7 @@ function CountSlipsScreenContent({ navigation, route }: Props) {
                   navigation.navigate("History", { fromFixChanges: true });
                 } else {
                   if (entries.length === 0) {
-                    Alert.alert("Oops! no entries found.");
+                    Alert.alert("Oops! No entries found.");
                     return;
                   }
                   navigation.navigate("Summary", {

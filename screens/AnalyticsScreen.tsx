@@ -128,7 +128,7 @@ export default function AnalyticsScreen({ navigation, route }: Props) {
 
   return (
     <View style={styles.container}>
-      <Header title="Analytics" />
+      <Header title="CashoutAI" />
 
       <TouchableOpacity
         style={[styles.backButton, { top: HEADER_HEIGHT + insets.top + 6 }]}

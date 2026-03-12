@@ -74,7 +74,7 @@ export default function SummaryScreen({ navigation, route }: Props) {
 
   return (
     <View style={styles.container}>
-      <Header title="Summary" />
+      <Header title="CashoutAI" />
 
       <TouchableOpacity
         style={[styles.backButton, { top: HEADER_HEIGHT + insets.top + 6 }]}

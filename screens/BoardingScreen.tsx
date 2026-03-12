@@ -21,14 +21,15 @@ export default function BoardingScreen({ navigation }: Props) {
         { paddingTop: insets.top, paddingBottom: insets.bottom },
       ]}
     >
-      <Text style={styles.title}>We want u try cashOutAI for free</Text>
-
-      <View style={styles.imageWrap}>
-        <Image
-          source={require("../assets/IMG_0064.png")}
-          style={styles.image}
-          resizeMode="contain"
-        />
+      <View style={styles.top}>
+        <Text style={styles.title}>We want you try CashoutAI for free</Text>
+        <View style={styles.imageWrap}>
+          <Image
+            source={require("../assets/IMG_0064.png")}
+            style={styles.image}
+            resizeMode="contain"
+          />
+        </View>
       </View>
 
       <View style={styles.bottom}>
@@ -56,6 +57,13 @@ const styles = StyleSheet.create({
     backgroundColor: colors.background,
     paddingHorizontal: spacing.xs,
     alignItems: "center",
+    justifyContent: "space-between",
+  },
+  top: {
+    flex: 1,
+    minHeight: 0,
+    width: "100%",
+    alignItems: "center",
   },
   title: {
     fontSize: fontSizes["4xl"],
@@ -67,9 +75,10 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.lg,
   },
   imageWrap: {
+    flex: 1,
+    minHeight: 0,
     width: "100%",
     maxWidth: 440,
-    aspectRatio: 3 / 4,
     marginTop: -spacing.sm,
     borderRadius: radii.lg,
     overflow: "hidden",

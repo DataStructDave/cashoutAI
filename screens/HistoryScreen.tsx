@@ -123,7 +123,7 @@ export default function HistoryScreen({ navigation, route }: Props) {
 
   return (
     <View style={styles.container}>
-      <Header title="cashOutAI" />
+      <Header title="CashoutAI" />
 
       <TouchableOpacity
         style={[styles.backButton, { top: HEADER_HEIGHT + insets.top + 6 }]}

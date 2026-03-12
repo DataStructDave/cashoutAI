@@ -29,6 +29,7 @@ import { api, type Entry } from "../../api";
 import { trackEvent } from "../../utils/analytics";
 
 const KEY_CAMERA_ALERT_SEEN = "@cashoutai/camera_right_side_up_alert_seen";
+const KEY_AI_DISCLOSURE_ACCEPTED = "@cashoutai/ai_disclosure_accepted";
 
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get("window");
 
@@ -68,6 +69,7 @@ export default function ScanEntry({
   const [permission, requestPermission] = useCameraPermissions();
   const cameraRef = useRef<CameraView>(null);
   const pulseAnim = useRef(new Animated.Value(1)).current;
+  const [showDisclosureModal, setShowDisclosureModal] = useState(false);
 
   // Camera controls (reset when opening camera)
   const [flashMode, setFlashMode] = useState<"off" | "on" | "auto">("off");
@@ -194,11 +196,8 @@ export default function ScanEntry({
     return () => pulse.stop();
   }, [extracting, pulseAnim]);
 
-  const handleExtractPress = async () => {
-    if (selectedImages.length === 0) {
-      Alert.alert("No images", "Add at least one photo to extract.");
-      return;
-    }
+  const doExtract = async () => {
+    if (selectedImages.length === 0) return;
     onExtractingChange?.(true);
     try {
       const result = await api.extractReceipts(selectedImages);
@@ -229,6 +228,27 @@ export default function ScanEntry({
     } finally {
       onExtractingChange?.(false);
     }
+  };
+
+  const handleExtractPress = async () => {
+    if (selectedImages.length === 0) {
+      Alert.alert("No images", "Add at least one photo to extract.");
+      return;
+    }
+    const disclosureAccepted = await AsyncStorage.getItem(
+      KEY_AI_DISCLOSURE_ACCEPTED
+    );
+    if (disclosureAccepted !== "true") {
+      setShowDisclosureModal(true);
+      return;
+    }
+    await doExtract();
+  };
+
+  const acceptDisclosureAndExtract = async () => {
+    await AsyncStorage.setItem(KEY_AI_DISCLOSURE_ACCEPTED, "true");
+    setShowDisclosureModal(false);
+    await doExtract();
   };
 
   const openCamera = async () => {
@@ -298,6 +318,66 @@ export default function ScanEntry({
 
   return (
     <>
+      <Modal
+        visible={showDisclosureModal}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setShowDisclosureModal(false)}
+      >
+        <View style={styles.disclosureOverlay}>
+          <View style={styles.disclosureCard}>
+            <Text style={styles.disclosureTitle}>Data Use Disclosure</Text>
+            <ScrollView
+              style={styles.disclosureScroll}
+              showsVerticalScrollIndicator={false}
+            >
+              <Text style={styles.disclosureBody}>
+                Before we extract totals and tips from your receipts, we need
+                your permission.
+              </Text>
+              <Text style={styles.disclosureBody}>
+                <Text style={styles.disclosureBold}>What we send:</Text> Your
+                receipt or tip slip images.
+              </Text>
+              <Text style={styles.disclosureBody}>
+                <Text style={styles.disclosureBold}>Who receives it:</Text> We
+                securely send these images to OpenAI, a third-party AI provider,
+                to read the text and extract totals, tips, and payment
+                information.
+              </Text>
+              <Text style={styles.disclosureBody}>
+                <Text style={styles.disclosureBold}>How it’s used:</Text> The
+                extracted data is used only to fill in your cash-out entries
+                within CashoutAI. We do not use your images for any other
+                purpose.
+              </Text>
+              <Text style={styles.disclosureBody}>
+                By tapping “I agree” below, you consent to your receipt images
+                being sent to OpenAI for this processing.
+              </Text>
+            </ScrollView>
+            <View style={styles.disclosureButtons}>
+              <TouchableOpacity
+                style={styles.disclosureButtonSecondary}
+                onPress={() => setShowDisclosureModal(false)}
+                activeOpacity={0.8}
+              >
+                <Text style={styles.disclosureButtonSecondaryText}>
+                  Not now
+                </Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={styles.disclosureButtonPrimary}
+                onPress={acceptDisclosureAndExtract}
+                activeOpacity={0.8}
+              >
+                <Text style={styles.disclosureButtonPrimaryText}>I agree</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
+
       <View style={styles.imagesBox}>
         {selectedImages.length === 0 ? (
           <Text style={styles.imagesPlaceholder}>No images selected</Text>
@@ -621,6 +701,73 @@ const styles = StyleSheet.create({
   },
   extractIconWrap: {},
   scanButtonPrimaryText: {
+    fontSize: fontSizes.md,
+    fontWeight: "600",
+    color: colors.onPrimary,
+  },
+
+  /* First-scan disclosure modal */
+  disclosureOverlay: {
+    flex: 1,
+    backgroundColor: "rgba(0,0,0,0.5)",
+    justifyContent: "center",
+    alignItems: "center",
+    padding: spacing.xl,
+  },
+  disclosureCard: {
+    backgroundColor: colors.surface,
+    borderRadius: radii.lg,
+    padding: spacing.xl,
+    maxWidth: 400,
+    width: "100%",
+    maxHeight: "80%",
+  },
+  disclosureTitle: {
+    fontSize: fontSizes.xl,
+    fontWeight: "700",
+    color: colors.primaryDark,
+    marginBottom: spacing.md,
+  },
+  disclosureScroll: {
+    maxHeight: 280,
+  },
+  disclosureBody: {
+    fontSize: fontSizes.sm,
+    color: colors.text,
+    lineHeight: 22,
+    marginBottom: spacing.md,
+  },
+  disclosureBold: {
+    fontWeight: "600",
+    color: colors.text,
+  },
+  disclosureButtons: {
+    flexDirection: "row",
+    gap: spacing.md,
+    marginTop: spacing.lg,
+  },
+  disclosureButtonSecondary: {
+    flex: 1,
+    paddingVertical: spacing.md,
+    borderRadius: radii.lg,
+    backgroundColor: colors.background,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  disclosureButtonSecondaryText: {
+    fontSize: fontSizes.md,
+    fontWeight: "600",
+    color: colors.text,
+  },
+  disclosureButtonPrimary: {
+    flex: 1,
+    paddingVertical: spacing.md,
+    borderRadius: radii.lg,
+    backgroundColor: colors.primary,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  disclosureButtonPrimaryText: {
     fontSize: fontSizes.md,
     fontWeight: "600",
     color: colors.onPrimary,
